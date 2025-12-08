@@ -97,5 +97,51 @@ final currentBarberProvider = AutoDisposeFutureProvider<BarberModel?>.internal(
 );
 
 typedef CurrentBarberRef = AutoDisposeFutureProviderRef<BarberModel?>;
+String _$clientBookingsHash() => r'9943e969ab8eb3c77444f966e3e2cfd0ba3ae53f';
+
+/// See also [clientBookings].
+@ProviderFor(clientBookings)
+final clientBookingsProvider =
+    AutoDisposeFutureProvider<List<BookingModel>>.internal(
+  clientBookings,
+  name: r'clientBookingsProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$clientBookingsHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef ClientBookingsRef = AutoDisposeFutureProviderRef<List<BookingModel>>;
+String _$nextClientBookingHash() => r'07b5b187b572d2ea57f30542b3d97c9c5ef1e124';
+
+/// See also [nextClientBooking].
+@ProviderFor(nextClientBooking)
+final nextClientBookingProvider =
+    AutoDisposeFutureProvider<BookingModel?>.internal(
+  nextClientBooking,
+  name: r'nextClientBookingProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$nextClientBookingHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef NextClientBookingRef = AutoDisposeFutureProviderRef<BookingModel?>;
+String _$userProfileHash() => r'77f4e73167b958d6f9b55b22461a157b9d7e022d';
+
+/// See also [userProfile].
+@ProviderFor(userProfile)
+final userProfileProvider = AutoDisposeFutureProvider<ProfileModel?>.internal(
+  userProfile,
+  name: r'userProfileProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$userProfileHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef UserProfileRef = AutoDisposeFutureProviderRef<ProfileModel?>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

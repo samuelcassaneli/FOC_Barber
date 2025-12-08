@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/booking_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/booking_provider.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/gold_button.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -55,8 +57,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               GoldButton(
                 label: "Gerenciar Barbearias",
                 onPressed: () {
-                  // Navigate to Admin features if implemented in mobile
-                  // For now, show a dialog or placeholder
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Funcionalidade completa disponível na Web."))
                   );
@@ -69,12 +69,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     final currentBarberAsync = ref.watch(currentBarberProvider);
+    final servicesAsync = ref.watch(servicesProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Painel Administrativo"),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref.invalidate(currentBarberProvider);
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -84,11 +93,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               return const Center(child: Text("Você não tem perfil de barbeiro.", style: TextStyle(color: Colors.white)));
             }
             
-            final today = DateTime.now();
-            final bookingsAsync = ref.watch(bookingRepositoryProvider).getBarberBookings(barber.id, today);
-            
-            return FutureBuilder<List<dynamic>>( // Using dynamic for simplicity, ideally BookingModel
-              future: bookingsAsync,
+            return FutureBuilder<List<BookingModel>>(
+              future: ref.watch(bookingRepositoryProvider).getBarberBookings(barber.id, DateTime.now()),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -96,59 +102,72 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 
                 final bookings = snapshot.data ?? [];
                 
-                return Column(
-                  children: [
-                    _buildFinancials(bookings.length),
-                    const SizedBox(height: 30),
+                // Calculate real earnings using service prices
+                return servicesAsync.when(
+                  data: (services) {
+                    double totalEarnings = 0;
+                    for (var booking in bookings.where((b) => b.status != 'cancelled')) {
+                      final service = services.where((s) => s.id == booking.serviceId).firstOrNull;
+                      if (service != null) {
+                        totalEarnings += service.price;
+                      }
+                    }
                     
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    return Column(
                       children: [
-                        Text("Agenda de Hoje", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                        Text("Ver tudo", style: TextStyle(color: AppTheme.accent)),
-                      ],
-                    ),
-                    const SizedBox(height: 15),
-                    
-                    Expanded(
-                      child: bookings.isEmpty 
-                        ? const Center(child: Text("Sem agendamentos para hoje.", style: TextStyle(color: Colors.grey)))
-                        : ListView.builder(
-                            itemCount: bookings.length,
-                            itemBuilder: (context, index) {
-                              final booking = bookings[index];
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                child: GlassCard(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: Colors.white10,
-                                      child: Text("C${index+1}", style: const TextStyle(color: Colors.white)),
-                                    ),
-                                    title: const Text("Cliente", style: TextStyle(color: Colors.white)), // We need client name
-                                    subtitle: Text("${DateFormat('HH:mm').format(booking.startTime)} - Serviço", style: const TextStyle(color: Colors.grey)),
-                                    trailing: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: booking.status == 'confirmed' ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(4)
-                                      ),
-                                      child: Text(
-                                        booking.status,
-                                        style: TextStyle(
-                                          color: booking.status == 'confirmed' ? Colors.green : Colors.orange,
-                                          fontSize: 10
+                        _buildFinancials(bookings.length, totalEarnings),
+                        const SizedBox(height: 30),
+                        
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Agenda de Hoje", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                            Text("${bookings.length} agendamentos", style: const TextStyle(color: AppTheme.accent)),
+                          ],
+                        ),
+                        const SizedBox(height: 15),
+                        
+                        Expanded(
+                          child: bookings.isEmpty 
+                            ? const Center(child: Text("Sem agendamentos para hoje.", style: TextStyle(color: Colors.grey)))
+                            : ListView.builder(
+                                itemCount: bookings.length,
+                                itemBuilder: (context, index) {
+                                  final booking = bookings[index];
+                                  final service = services.where((s) => s.id == booking.serviceId).firstOrNull;
+                                  
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    child: GlassCard(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: ListTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor: _getStatusColor(booking.status).withOpacity(0.2),
+                                          child: Text(
+                                            DateFormat('HH').format(booking.startTime),
+                                            style: TextStyle(color: _getStatusColor(booking.status)),
+                                          ),
                                         ),
+                                        title: Text(
+                                          service?.name ?? "Serviço",
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                        ),
+                                        subtitle: Text(
+                                          "${DateFormat('HH:mm').format(booking.startTime)} - ${DateFormat('HH:mm').format(booking.endTime)}",
+                                          style: const TextStyle(color: Colors.grey),
+                                        ),
+                                        trailing: _buildStatusActions(booking),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                    )
-                  ],
+                                  );
+                                },
+                              ),
+                        )
+                      ],
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, _) => Center(child: Text('Erro: $err', style: const TextStyle(color: Colors.red))),
                 );
               }
             );
@@ -160,11 +179,92 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildFinancials(int count) {
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'confirmed':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      case 'cancelled':
+        return Colors.red;
+      case 'completed':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _buildStatusActions(BookingModel booking) {
+    if (booking.status == 'pending') {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.check_circle, color: Colors.green, size: 20),
+            onPressed: () => _updateBookingStatus(booking.id, 'confirmed'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.cancel, color: Colors.red, size: 20),
+            onPressed: () => _updateBookingStatus(booking.id, 'cancelled'),
+          ),
+        ],
+      );
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _getStatusColor(booking.status).withOpacity(0.2),
+        borderRadius: BorderRadius.circular(4)
+      ),
+      child: Text(
+        _getStatusLabel(booking.status),
+        style: TextStyle(
+          color: _getStatusColor(booking.status),
+          fontSize: 10
+        ),
+      ),
+    );
+  }
+
+  String _getStatusLabel(String status) {
+    switch (status) {
+      case 'confirmed':
+        return 'Confirmado';
+      case 'pending':
+        return 'Pendente';
+      case 'cancelled':
+        return 'Cancelado';
+      case 'completed':
+        return 'Concluído';
+      default:
+        return status;
+    }
+  }
+
+  Future<void> _updateBookingStatus(String bookingId, String status) async {
+    try {
+      if (status == 'cancelled') {
+        await ref.read(bookingRepositoryProvider).cancelBooking(bookingId);
+      } else {
+        await ref.read(bookingRepositoryProvider).updateBookingStatus(bookingId, status);
+      }
+      setState(() {}); // Refresh the UI
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Status atualizado para: ${_getStatusLabel(status)}')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro: $e')),
+      );
+    }
+  }
+
+  Widget _buildFinancials(int count, double earnings) {
     return Row(
       children: [
         Expanded(
-          child: _buildStatCard("Ganhos (Est.)", "R\$ ${count * 50},00", CupertinoIcons.money_dollar, Colors.green), // Mock calc
+          child: _buildStatCard("Ganhos (Hoje)", "R\$ ${earnings.toStringAsFixed(0)}", CupertinoIcons.money_dollar, Colors.green),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -172,10 +272,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ],
     );
-  }
-
-  Widget _buildBookingList(DateTime date) {
-     return const SizedBox.shrink(); // Unused
   }
 
   Widget _buildStatCard(String title, String value, IconData icon, Color iconColor) {

@@ -3,6 +3,7 @@ export interface Profile {
     full_name: string
     email: string
     role: 'client' | 'barber' | 'admin'
+    created_at?: string
 }
 
 export interface Service {

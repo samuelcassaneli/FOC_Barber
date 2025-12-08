@@ -49,6 +49,14 @@ class BookingRepositoryImpl implements BookingRepository {
   }
 
   @override
+  Future<void> updateBookingStatus(String bookingId, String status) async {
+    await _client
+        .from('bookings')
+        .update({'status': status})
+        .eq('id', bookingId);
+  }
+
+  @override
   Future<void> cancelBooking(String bookingId) async {
     await _client
         .from('bookings')

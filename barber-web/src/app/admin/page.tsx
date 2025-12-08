@@ -6,27 +6,23 @@ import { supabase } from '@/lib/supabase'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { GoldButton } from '@/components/ui/GoldButton'
 import { Users, Calendar, DollarSign, TrendingUp, Activity, Store } from 'lucide-react'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
-// Mock data for charts (replace with real aggregation in production)
-const revenueData = [
-    { name: 'Jan', value: 4000 },
-    { name: 'Fev', value: 3000 },
-    { name: 'Mar', value: 2000 },
-    { name: 'Abr', value: 2780 },
-    { name: 'Mai', value: 1890 },
-    { name: 'Jun', value: 2390 },
-    { name: 'Jul', value: 3490 },
-]
+interface RevenueData {
+    name: string
+    value: number
+}
 
 export default function AdminDashboard() {
     const router = useRouter()
     const [loading, setLoading] = useState(true)
+    const [revenueData, setRevenueData] = useState<RevenueData[]>([])
     const [stats, setStats] = useState({
         totalBookings: 0,
         totalRevenue: 0,
         activeBarbers: 0,
-        activeClients: 0
+        activeClients: 0,
+        todayBookings: 0
     })
 
     useEffect(() => {
@@ -42,11 +38,53 @@ export default function AdminDashboard() {
             const { count: barbersCount } = await supabase.from('barbers').select('*', { count: 'exact' })
             const { count: clientsCount } = await supabase.from('profiles').select('*', { count: 'exact' }).eq('role', 'client')
 
+            // Today's bookings
+            const today = new Date()
+            const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
+            const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString()
+            const { count: todayCount } = await supabase
+                .from('bookings')
+                .select('*', { count: 'exact' })
+                .gte('start_time', startOfDay)
+                .lt('start_time', endOfDay)
+
+            // Get revenue data for last 6 months
+            const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+            const revenueByMonth: RevenueData[] = []
+            let totalRevenue = 0
+
+            for (let i = 5; i >= 0; i--) {
+                const date = new Date()
+                date.setMonth(date.getMonth() - i)
+                const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).toISOString()
+                const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1).toISOString()
+
+                const { data: monthBookings } = await supabase
+                    .from('bookings')
+                    .select('service:services(price)')
+                    .eq('status', 'completed')
+                    .gte('start_time', startOfMonth)
+                    .lt('start_time', endOfMonth)
+
+                const monthRevenue = (monthBookings || []).reduce((sum, b: any) => {
+                    const price = Array.isArray(b.service) ? b.service[0]?.price || 0 : 0
+                    return sum + price
+                }, 0)
+
+                revenueByMonth.push({
+                    name: months[date.getMonth()],
+                    value: monthRevenue
+                })
+                totalRevenue += monthRevenue
+            }
+
+            setRevenueData(revenueByMonth)
             setStats({
                 totalBookings: bookingsCount || 0,
-                totalRevenue: (bookingsCount || 0) * 35, // Mock avg price
+                totalRevenue,
                 activeBarbers: barbersCount || 0,
-                activeClients: clientsCount || 0
+                activeClients: clientsCount || 0,
+                todayBookings: todayCount || 0
             })
 
             setLoading(false)
@@ -104,7 +142,7 @@ export default function AdminDashboard() {
                             </div>
                             <p className="text-3xl font-bold text-white">{stats.totalBookings}</p>
                             <p className="text-blue-400 text-xs mt-2 flex items-center gap-1">
-                                <Activity className="w-3 h-3" /> {stats.totalBookings} hoje
+                                <Activity className="w-3 h-3" /> {stats.todayBookings} hoje
                             </p>
                         </div>
                     </GlassCard>
