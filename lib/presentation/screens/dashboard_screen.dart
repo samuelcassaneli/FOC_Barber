@@ -19,8 +19,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authStateChangesProvider);
-    final user = authState.value?.session?.user;
+    final authStateAsync = ref.watch(authStateProvider);
+    final user = authStateAsync.value;
     final isSuperAdmin = user?.email == 'aiucmt.kiaaivmtq@gmail.com';
 
     if (isSuperAdmin) {
