@@ -13,13 +13,14 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<AuthResponse> signUpWithEmailPassword(String email, String password, String fullName, String role) async {
+  Future<AuthResponse> signUpWithEmailPassword(String email, String password, String fullName, String role, {String? inviteCode}) async {
     return await _client.auth.signUp(
       email: email,
       password: password,
       data: {
         'full_name': fullName,
         'role': role,
+        if (inviteCode != null) 'invite_code': inviteCode,
       },
     );
   }

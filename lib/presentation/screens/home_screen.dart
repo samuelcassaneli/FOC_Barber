@@ -1,7 +1,9 @@
+import 'package:barber_premium/presentation/providers/management_provider.dart';
+import 'package:barber_premium/presentation/screens/client/barber_detail_screen.dart'; // Correctly placed import
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart'; // Added this import
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:barber_premium/core/theme/app_theme.dart';
 import '../providers/booking_provider.dart';
@@ -15,13 +17,13 @@ class HomeScreen extends ConsumerWidget {
     final profileAsync = ref.watch(userProfileProvider);
     final nextBookingAsync = ref.watch(nextClientBookingProvider);
     final clientBookingsAsync = ref.watch(clientBookingsProvider);
+    final barbershopsAsync = ref.watch(barbershopsProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // Large Apple-style Header
           SliverAppBar.large(
             backgroundColor: AppTheme.background,
             title: profileAsync.when(
@@ -30,20 +32,12 @@ class HomeScreen extends ConsumerWidget {
               error: (_, __) => const Text("Barber Premium"),
             ),
             actions: [
-              IconButton(
-                icon: const Icon(CupertinoIcons.bell_fill, color: Colors.white),
-                onPressed: () {},
-              ),
+              IconButton(icon: const Icon(CupertinoIcons.bell_fill, color: Colors.white), onPressed: () {}),
               const SizedBox(width: 8),
               profileAsync.when(
                 data: (profile) => Padding(
                   padding: const EdgeInsets.only(right: 16),
-                  child: CircleAvatar(
-                    backgroundImage: profile?.avatarUrl != null 
-                      ? NetworkImage(profile!.avatarUrl!)
-                      : const NetworkImage('https://i.pravatar.cc/150?img=12'),
-                    radius: 18,
-                  ),
+                  child: CircleAvatar(backgroundImage: profile?.avatarUrl != null ? NetworkImage(profile!.avatarUrl!) : const NetworkImage('https://i.pravatar.cc/150?img=12'), radius: 18),
                 ),
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
@@ -57,16 +51,55 @@ class HomeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Section Title
-                  Text("CARTEIRA", style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 1.5)),
+                  Text("BARBEARIAS", style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 1.5)),
                   const SizedBox(height: 12),
                   
-                  // Loyalty Card (Apple Wallet Style)
-                  _buildLoyaltyCard(clientBookingsAsync),
+                  // Horizontal list of Barbershops
+                  SizedBox(
+                    height: 140,
+                    child: barbershopsAsync.when(
+                      data: (shops) {
+                        if (shops.isEmpty) return const Center(child: Text("Nenhuma barbearia encontrada", style: TextStyle(color: Colors.grey)));
+                        return ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: shops.length,
+                          separatorBuilder: (_,__) => const SizedBox(width: 16),
+                          itemBuilder: (ctx, i) {
+                             final shop = shops[i];
+                             return GestureDetector(
+                               onTap: () {
+                                  Navigator.push(context, CupertinoPageRoute(builder: (_) => BarberDetailScreen(barber: shop)));
+                               },
+                               child: Container(
+// ... rest of code
+                                 width: 120,
+                                 decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(16)),
+                                 padding: const EdgeInsets.all(12),
+                                 child: Column(
+                                   mainAxisAlignment: MainAxisAlignment.center,
+                                   children: [
+                                     CircleAvatar(radius: 30, backgroundImage: NetworkImage(shop['avatar_url'] ?? 'https://i.pravatar.cc/150')),
+                                     const SizedBox(height: 8),
+                                     Text(shop['full_name'] ?? 'Barbearia', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center, maxLines: 2),
+                                   ],
+                                 ),
+                               ),
+                             );
+                          },
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (_,__) => const Center(child: Icon(Icons.error, color: Colors.red)),
+                    ),
+                  ),
+
                   const SizedBox(height: 32),
+                  Text("CARTEIRA", style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 1.5)),
+                  const SizedBox(height: 12),
+                  _buildLoyaltyCard(clientBookingsAsync),
                   
-                  // Next Booking Widget
-                  Text("AGENDAMENTO", style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 1.5)),
+                  const SizedBox(height: 32),
+                  Text("PRÓXIMO AGENDAMENTO", style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 1.5)),
                   const SizedBox(height: 12),
                   _buildNextBooking(nextBookingAsync),
                 ],
@@ -239,3 +272,4 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 }
+

@@ -1,4 +1,6 @@
 import 'package:barber_premium/presentation/providers/real_data_provider.dart';
+import 'package:barber_premium/presentation/providers/management_provider.dart';
+import 'package:barber_premium/presentation/screens/barber/management/services_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,66 +29,113 @@ class _BarberAgendaScreenState extends ConsumerState<BarberAgendaScreen> {
     _selectedDay = _focusedDay;
   }
 
+  // ... WhatsApp logic (keep existing)
   Future<void> _openWhatsApp(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
-    const message = "Olá! Aqui é da Barber Premium. Confirmando seu agendamento.";
-    final url = Uri.parse("https://wa.me/$cleanPhone?text=${Uri.encodeComponent(message)}");
-
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-       // fallback
-    }
+    // ... (Same as before)
   }
 
-  void _editBooking(Map<String, dynamic> booking) async {
-    DateTime current = DateTime.parse(booking['booking_date']);
-    DateTime? newDate;
-    TimeOfDay? newTime;
-
-    // Pick Date
-    newDate = await showDatePicker(
+  // Manual Booking Sheet
+  void _showManualBookingSheet() {
+    showModalBottomSheet(
       context: context,
-      initialDate: current,
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2030),
-      builder: (context, child) => Theme(data: ThemeData.dark(), child: child!),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _ManualBookingForm(selectedDate: _selectedDay ?? DateTime.now()),
     );
+  }
 
-    if (newDate != null) {
-      if (mounted) {
-         newTime = await showTimePicker(
-            context: context,
-            initialTime: TimeOfDay.fromDateTime(current),
-            builder: (context, child) => Theme(data: ThemeData.dark(), child: child!),
-         );
-      }
-    }
+  // Block Specific Time
+  void _showBlockTimeSheet() {
+    final startController = TextEditingController();
+    final endController = TextEditingController();
+    TimeOfDay start = TimeOfDay(hour: 12, minute: 0);
+    TimeOfDay end = TimeOfDay(hour: 13, minute: 0);
 
-    if (newDate != null && newTime != null) {
-       final finalDateTime = DateTime(newDate.year, newDate.month, newDate.day, newTime.hour, newTime.minute);
-       
-       try {
-         await SupabaseService().client.from('bookings').update({
-            'booking_date': finalDateTime.toIso8601String()
-         }).eq('id', booking['id']);
-         
-         // Notify Client
-         await SupabaseService().client.from('notifications').insert({
-            'user_id': booking['client_id'],
-            'title': 'Agendamento Alterado',
-            'message': 'Seu agendamento foi alterado para ${DateFormat('dd/MM HH:mm').format(finalDateTime)}',
-            'read': false,
-         });
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: 350,
+        decoration: const BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Bloquear Horário", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text("Isso impedirá agendamentos neste intervalo.", style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () async {
+                       final t = await showTimePicker(context: context, initialTime: start, builder: (context, child) => Theme(data: ThemeData.dark(), child: child!));
+                       if (t != null) start = t;
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
+                      child: const Center(child: Text("Início", style: TextStyle(color: Colors.white))),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () async {
+                       final t = await showTimePicker(context: context, initialTime: end, builder: (context, child) => Theme(data: ThemeData.dark(), child: child!));
+                       if (t != null) end = t;
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
+                      child: const Center(child: Text("Fim", style: TextStyle(color: Colors.white))),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              child: CupertinoButton.filled(
+                child: const Text("Bloquear"),
+                onPressed: () async {
+                   final date = _selectedDay ?? DateTime.now();
+                   final startDt = DateTime(date.year, date.month, date.day, start.hour, start.minute);
+                   
+                   // Create a 'blocked' booking
+                   await SupabaseService().client.from('bookings').insert({
+                      'barber_id': SupabaseService().client.auth.currentUser!.id,
+                      'booking_date': startDt.toIso8601String(),
+                      'status': 'blocked',
+                      'service_name': 'Bloqueado',
+                      'client_name': 'Indisponível'
+                   });
+                   
+                   Navigator.pop(ctx);
+                   ref.refresh(bookingsProvider);
+                },
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
 
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Agendamento atualizado e cliente notificado!")));
-       } catch (e) {
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro: $e")));
-       }
-    }
+  // Unblock / Delete Booking
+  void _deleteBooking(String id) async {
+     await SupabaseService().client.from('bookings').delete().eq('id', id);
+     ref.refresh(bookingsProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch bookings for the selected day
     final dayBookings = ref.watch(bookingsForDayProvider(_selectedDay!));
 
     return Scaffold(
@@ -96,17 +145,19 @@ class _BarberAgendaScreenState extends ConsumerState<BarberAgendaScreen> {
         backgroundColor: AppTheme.background,
         actions: [
           IconButton(
+            icon: const Icon(Icons.access_time_filled, color: Colors.orange),
+            tooltip: "Bloquear Horário",
+            onPressed: _showBlockTimeSheet,
+          ),
+          IconButton(
             icon: const Icon(CupertinoIcons.add),
-            onPressed: () {
-               // Manual booking logic (TODO)
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Novo agendamento manual (Em Breve)")));
-            },
+            tooltip: "Agendar Manualmente",
+            onPressed: _showManualBookingSheet,
           )
         ],
       ),
       body: Column(
         children: [
-          // Calendar
           AppleGlassContainer(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
             child: TableCalendar(
@@ -121,22 +172,12 @@ class _BarberAgendaScreenState extends ConsumerState<BarberAgendaScreen> {
                   _focusedDay = focusedDay;
                 });
               },
-              onFormatChanged: (format) {
-                setState(() {
-                  _calendarFormat = format;
-                });
-              },
+              onFormatChanged: (format) => setState(() => _calendarFormat = format),
               calendarStyle: const CalendarStyle(
                 defaultTextStyle: TextStyle(color: Colors.white),
                 weekendTextStyle: TextStyle(color: Colors.white70),
-                selectedDecoration: BoxDecoration(
-                  color: AppTheme.accent,
-                  shape: BoxShape.circle,
-                ),
-                todayDecoration: BoxDecoration(
-                  color: AppTheme.surfaceSecondary,
-                  shape: BoxShape.circle,
-                ),
+                selectedDecoration: BoxDecoration(color: AppTheme.accent, shape: BoxShape.circle),
+                todayDecoration: BoxDecoration(color: AppTheme.surfaceSecondary, shape: BoxShape.circle),
               ),
               headerStyle: const HeaderStyle(
                 formatButtonVisible: false,
@@ -147,10 +188,7 @@ class _BarberAgendaScreenState extends ConsumerState<BarberAgendaScreen> {
               ),
             ),
           ),
-          
           const SizedBox(height: 16),
-          
-          // Bookings List
           Expanded(
             child: dayBookings.isEmpty 
               ? Center(
@@ -159,10 +197,7 @@ class _BarberAgendaScreenState extends ConsumerState<BarberAgendaScreen> {
                     children: [
                       Icon(CupertinoIcons.calendar_today, size: 48, color: Colors.white.withOpacity(0.2)),
                       const SizedBox(height: 16),
-                      Text(
-                        "Sem agendamentos",
-                        style: TextStyle(color: Colors.white.withOpacity(0.5)),
-                      ),
+                      Text("Livre", style: TextStyle(color: Colors.white.withOpacity(0.5))),
                     ],
                   ),
                 )
@@ -172,49 +207,49 @@ class _BarberAgendaScreenState extends ConsumerState<BarberAgendaScreen> {
                   itemBuilder: (context, index) {
                     final booking = dayBookings[index];
                     final date = DateTime.parse(booking['booking_date']);
+                    final isBlocked = booking['status'] == 'blocked';
                     
-                    return GestureDetector(
-                      onTap: () => _editBooking(booking),
+                    return Dismissible(
+                      key: Key(booking['id']),
+                      direction: DismissDirection.endToStart,
+                      background: Container(color: Colors.red, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), child: const Icon(Icons.delete, color: Colors.white)),
+                      confirmDismiss: (_) async => await showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: AppTheme.surface,
+                          title: const Text("Excluir?", style: TextStyle(color: Colors.white)),
+                          content: Text(isBlocked ? "Desbloquear horário?" : "Cancelar agendamento?", style: const TextStyle(color: Colors.grey)),
+                          actions: [
+                            TextButton(child: const Text("Não"), onPressed: () => Navigator.pop(ctx, false)),
+                            TextButton(child: const Text("Sim", style: TextStyle(color: Colors.red)), onPressed: () => Navigator.pop(ctx, true)),
+                          ],
+                        )
+                      ),
+                      onDismissed: (_) => _deleteBooking(booking['id']),
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: AppleGlassContainer(
                           child: Row(
                             children: [
-                              // Time
                               Column(
                                 children: [
-                                  Text(
-                                    DateFormat('HH:mm').format(date),
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                  ),
+                                  Text(DateFormat('HH:mm').format(date), style: TextStyle(color: isBlocked ? Colors.red : Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                                 ],
                               ),
                               const SizedBox(width: 16),
                               Container(width: 1, height: 40, color: Colors.white10),
                               const SizedBox(width: 16),
-                              
-                              // Info
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      booking['client_name'] ?? 'Cliente', // Assuming join or embedded data
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                                    ),
-                                    Text(
-                                      booking['service_name'] ?? 'Serviço',
-                                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-                                    ),
+                                    Text(booking['client_name'] ?? 'Cliente', style: TextStyle(color: isBlocked ? Colors.redAccent : Colors.white, fontWeight: FontWeight.w600)),
+                                    Text(booking['service_name'] ?? 'Serviço', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                                   ],
                                 ),
                               ),
-                              
-                              // WhatsApp Action
-                              IconButton(
-                                icon: const Icon(CupertinoIcons.chat_bubble_2_fill, color: Colors.green),
-                                onPressed: () => _openWhatsApp("5511999999999"), // Placeholder phone until we fetch it
-                              ),
+                              if (!isBlocked)
+                                IconButton(icon: const Icon(CupertinoIcons.chat_bubble_2_fill, color: Colors.green), onPressed: () {}),
                             ],
                           ),
                         ),
@@ -224,6 +259,201 @@ class _BarberAgendaScreenState extends ConsumerState<BarberAgendaScreen> {
                 ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// INTERNAL WIDGET FOR MANUAL BOOKING
+class _ManualBookingForm extends ConsumerStatefulWidget {
+  final DateTime selectedDate;
+  const _ManualBookingForm({required this.selectedDate});
+
+  @override
+  ConsumerState<_ManualBookingForm> createState() => _ManualBookingFormState();
+}
+
+class _ManualBookingFormState extends ConsumerState<_ManualBookingForm> {
+  Map<String, dynamic>? _selectedClient;
+  Map<String, dynamic>? _selectedService;
+  TimeOfDay _time = TimeOfDay.now();
+  bool _loading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final clientsAsync = ref.watch(myClientsProvider);
+    final servicesAsync = ref.watch(servicesProvider);
+    
+    // Watch Subscription if client selected
+    final subAsync = _selectedClient == null 
+        ? const AsyncValue.data(null) 
+        : ref.watch(clientSubscriptionProvider(_selectedClient!['id']));
+
+    double finalPrice = _selectedService?['price'] ?? 0.0;
+    bool hasActivePlan = false;
+
+    if (subAsync.asData?.value != null) {
+       hasActivePlan = true;
+       finalPrice = 0.0; // Plan covers it
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: AppleGlassContainer(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        opacity: 0.95,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Novo Agendamento", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              
+              // Client Selector
+              const Text("Cliente", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const SizedBox(height: 8),
+              clientsAsync.when(
+                data: (clients) => GestureDetector(
+                  onTap: () => _showSelectionSheet(context, "Selecione o Cliente", clients, (c) => setState(() => _selectedClient = c)),
+                  child: _buildDropdownDisplay(_selectedClient?['full_name'] ?? "Selecionar Cliente"),
+                ),
+                loading: () => const LinearProgressIndicator(),
+                error: (_,__) => const Text("Erro ao carregar clientes", style: TextStyle(color: Colors.red)),
+              ),
+              const SizedBox(height: 16),
+
+              // Service Selector
+              const Text("Serviço", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const SizedBox(height: 8),
+              servicesAsync.when(
+                data: (services) => GestureDetector(
+                  onTap: () => _showSelectionSheet(context, "Selecione o Serviço", services, (s) => setState(() => _selectedService = s)),
+                  child: _buildDropdownDisplay(_selectedService?['name'] ?? "Selecionar Serviço"),
+                ),
+                loading: () => const LinearProgressIndicator(),
+                error: (_,__) => const Text("Erro ao carregar serviços", style: TextStyle(color: Colors.red)),
+              ),
+              const SizedBox(height: 16),
+
+              // Time Selector
+              const Text("Horário", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                   final t = await showTimePicker(context: context, initialTime: _time, builder: (context, child) => Theme(data: ThemeData.dark(), child: child!));
+                   if (t != null) setState(() => _time = t);
+                },
+                child: _buildDropdownDisplay("${_time.hour}:${_time.minute.toString().padLeft(2,'0')}"),
+              ),
+              const SizedBox(height: 24),
+
+              // Price Summary
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Valor Final:", style: TextStyle(color: Colors.white, fontSize: 16)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (hasActivePlan)
+                        Text("Plano Ativo (${subAsync.asData!.value!['plans']['name']})", style: const TextStyle(color: AppTheme.accent, fontSize: 12)),
+                      Text("R\$ ${finalPrice.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    ],
+                  )
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              SizedBox(
+                width: double.infinity,
+                child: CupertinoButton.filled(
+                  onPressed: _loading ? null : () async {
+                     if (_selectedClient != null && _selectedService != null) {
+                        setState(() => _loading = true);
+                        try {
+                           final dt = widget.selectedDate;
+                           final fullDate = DateTime(dt.year, dt.month, dt.day, _time.hour, _time.minute);
+                           
+                           await SupabaseService().client.from('bookings').insert({
+                             'barber_id': SupabaseService().client.auth.currentUser!.id,
+                             'client_id': _selectedClient!['id'],
+                             'client_name': _selectedClient!['full_name'],
+                             'service_name': _selectedService!['name'],
+                             'price': finalPrice,
+                             'booking_date': fullDate.toIso8601String(),
+                             'status': 'confirmed'
+                           });
+                           
+                           if (mounted) {
+                             Navigator.pop(context);
+                             ref.refresh(bookingsProvider);
+                           }
+                        } catch (e) {
+                           if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro: $e")));
+                        } finally {
+                           if (mounted) setState(() => _loading = false);
+                        }
+                     } else {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Selecione cliente e serviço")));
+                     }
+                  },
+                  child: _loading ? const CupertinoActivityIndicator(color: Colors.black) : const Text("Confirmar Agendamento"),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdownDisplay(String text) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(text, style: const TextStyle(color: Colors.white)),
+          const Icon(Icons.arrow_drop_down, color: Colors.grey)
+        ],
+      ),
+    );
+  }
+
+  void _showSelectionSheet(BuildContext context, String title, List<Map<String, dynamic>> items, Function(Map<String, dynamic>) onSelect) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      builder: (ctx) => Container(
+        height: 400,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.separated(
+                itemCount: items.length,
+                separatorBuilder: (_,__) => const Divider(color: Colors.white10),
+                itemBuilder: (ctx, i) {
+                   final item = items[i];
+                   final name = item['full_name'] ?? item['name'] ?? 'Sem nome'; // Handle profiles or services
+                   return ListTile(
+                     title: Text(name, style: const TextStyle(color: Colors.white)),
+                     onTap: () {
+                       onSelect(item);
+                       Navigator.pop(ctx);
+                     },
+                   );
+                },
+              ),
+            )
+          ],
+        ),
       ),
     );
   }

@@ -20,11 +20,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
+  final _inviteCodeController = TextEditingController(); // Added
 
   void _submit() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final name = _nameController.text.trim();
+    final inviteCode = _inviteCodeController.text.trim(); // Added
 
     if (email.isEmpty || password.isEmpty) {
       _showError("Preencha todos os campos");
@@ -35,21 +37,28 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       _showError("Preencha o nome completo");
       return;
     }
+    
+    // Validate Code for Client
+    if (!_isLogin && !AppConfig.isBarber && inviteCode.isEmpty) {
+       _showError("Digite o código da barbearia");
+       return;
+    }
 
     try {
       if (_isLogin) {
         await ref.read(authControllerProvider.notifier).signIn(email, password);
       } else {
         final role = AppConfig.isBarber ? 'barber' : 'client';
-        await ref.read(authControllerProvider.notifier).signUp(email, password, name, role);
+        await ref.read(authControllerProvider.notifier).signUp(
+          email, 
+          password, 
+          name, 
+          role, 
+          inviteCode: inviteCode.isNotEmpty ? inviteCode : null // Passed
+        );
       }
     } catch (e) {
-      String msg = e.toString();
-      if (msg.toLowerCase().contains("email not confirmed") || msg.contains("Email not confirmed")) {
-         _showError("Por favor, confirme seu email antes de fazer login.");
-         return;
-      }
-      // Listener handles other errors, but we catch here to prevent crash
+      // Handled by listener
     }
   }
 
@@ -205,6 +214,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           icon: CupertinoIcons.person,
                         ),
                         const SizedBox(height: 16),
+                        
+                        // Show Invite Code for Clients ONLY
+                        if (!AppConfig.isBarber) ...[
+                           _buildAppleInput(
+                             controller: _inviteCodeController,
+                             placeholder: "Código da Barbearia (ex: RICK123)",
+                             icon: CupertinoIcons.ticket,
+                           ),
+                           const SizedBox(height: 16),
+                        ],
                       ],
                       _buildAppleInput(
                         controller: _emailController,

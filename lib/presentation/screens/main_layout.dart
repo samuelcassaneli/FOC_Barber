@@ -1,10 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:barber_premium/core/theme/app_theme.dart';
+import '../../core/theme/app_theme.dart';
 import 'booking_screen.dart';
 import 'dashboard_screen.dart';
 import 'home_screen.dart';
+import 'client/client_profile_screen.dart'; // Import Client Profile
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -18,8 +19,9 @@ class _MainLayoutState extends State<MainLayout> {
   final List<Widget> _screens = const [
     HomeScreen(),
     BookingScreen(),
-    DashboardScreen(),
+    ClientProfileScreen(), // Use Client Profile here
   ];
+
 
   @override
   Widget build(BuildContext context) {

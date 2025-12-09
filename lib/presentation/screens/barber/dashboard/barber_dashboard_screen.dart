@@ -1,4 +1,5 @@
 import 'package:barber_premium/presentation/providers/real_data_provider.dart';
+import 'package:barber_premium/presentation/providers/profile_provider.dart'; // Added
 import 'package:barber_premium/presentation/screens/barber/clients/barber_clients_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ class BarberDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(dashboardStatsProvider);
     final bookingsAsync = ref.watch(bookingsProvider);
+    final profileAsync = ref.watch(profileProvider); // Added
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -25,10 +27,19 @@ class BarberDashboardScreen extends ConsumerWidget {
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 16),
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppTheme.surfaceSecondary,
-                  child: const Icon(CupertinoIcons.person_solid, color: Colors.white, size: 20),
+                child: profileAsync.when(
+                  data: (profile) => CircleAvatar(
+                    radius: 18,
+                    backgroundImage: profile['avatar_url'] != null 
+                        ? NetworkImage(profile['avatar_url']) 
+                        : null,
+                    backgroundColor: AppTheme.surfaceSecondary,
+                    child: profile['avatar_url'] == null 
+                        ? const Icon(CupertinoIcons.person_solid, color: Colors.white, size: 20)
+                        : null,
+                  ),
+                  loading: () => const CircleAvatar(radius: 18, backgroundColor: AppTheme.surfaceSecondary),
+                  error: (_,__) => const CircleAvatar(radius: 18, backgroundColor: AppTheme.surfaceSecondary, child: Icon(Icons.error, size: 16)),
                 ),
               ),
             ],
