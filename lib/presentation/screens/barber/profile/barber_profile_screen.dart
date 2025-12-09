@@ -100,20 +100,39 @@ class _BarberProfileScreenState extends ConsumerState<BarberProfileScreen> {
                        Text(profile['full_name'] ?? "Barbeiro", style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                        const Text("Barbearia Premium", style: TextStyle(color: AppTheme.textSecondary)),
                        const SizedBox(height: 16),
+import 'package:share_plus/share_plus.dart'; // Added import
+
+// ... inside the build method, where the code is displayed ...
                        Container(
-                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                          decoration: BoxDecoration(
-                           color: AppTheme.accent.withOpacity(0.15), 
+                           color: AppTheme.accent.withOpacity(0.1), 
                            borderRadius: BorderRadius.circular(16),
                            border: Border.all(color: AppTheme.accent.withOpacity(0.3))
                          ),
                          child: Column(
                            children: [
-                             const Text("SEU CÓDIGO", style: TextStyle(color: AppTheme.textSecondary, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-                             const SizedBox(height: 4),
-                             SelectableText(
-                               profile['shop_code'] ?? 'GERANDO...', 
-                               style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w900, fontSize: 24, letterSpacing: 2)
+                             const Text("CÓDIGO DA BARBEARIA", style: TextStyle(color: AppTheme.textSecondary, fontSize: 11, letterSpacing: 1.5, fontWeight: FontWeight.w900)),
+                             const SizedBox(height: 8),
+                             Row(
+                               mainAxisSize: MainAxisSize.min,
+                               children: [
+                                 SelectableText(
+                                   profile['shop_code'] ?? '...', 
+                                   style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w900, fontSize: 28, letterSpacing: 3)
+                                 ),
+                                 const SizedBox(width: 16),
+                                 IconButton(
+                                   onPressed: () {
+                                      final code = profile['shop_code'];
+                                      if (code != null) {
+                                        Share.share('Olá! Baixe o app Barber Premium e use meu código *$code* para agendar seu horário!');
+                                      }
+                                   },
+                                   icon: const Icon(Icons.share, color: Colors.white),
+                                   tooltip: "Compartilhar Código",
+                                 )
+                               ],
                              ),
                            ],
                          ),
