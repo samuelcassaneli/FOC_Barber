@@ -1,4 +1,6 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class SupabaseConstants {
-  static const String url = 'https://zynmvmxdluevuwigbadz.supabase.co';
-  static const String anonKey = 'sb_publishable_9w0K7O3Sun2zl2qIQwX33g_wGkVsy6f';
+  static String get url => dotenv.env['SUPABASE_URL'] ?? '';
+  static String get anonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 }

@@ -27,10 +27,10 @@ class AuthController extends _$AuthController {
     );
   }
 
-  Future<void> signUp(String email, String password, String fullName) async {
+  Future<void> signUp(String email, String password, String fullName, String role) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => 
-      ref.read(authRepositoryProvider).signUpWithEmailPassword(email, password, fullName)
+      ref.read(authRepositoryProvider).signUpWithEmailPassword(email, password, fullName, role)
     );
   }
 

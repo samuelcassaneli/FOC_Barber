@@ -1,10 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart'; // Added this import
 import 'package:intl/intl.dart';
-import '../../core/theme/app_theme.dart';
+import 'package:barber_premium/core/theme/app_theme.dart';
 import '../providers/booking_provider.dart';
-import '../widgets/glass_card.dart';
+import '../widgets/apple_glass_container.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -16,211 +17,225 @@ class HomeScreen extends ConsumerWidget {
     final clientBookingsAsync = ref.watch(clientBookingsProvider);
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
+          // Large Apple-style Header
           SliverAppBar.large(
             backgroundColor: AppTheme.background,
             title: profileAsync.when(
-              data: (profile) => Text(
-                "Olá, ${profile?.fullName?.split(' ').first ?? 'Cliente'}",
-                style: AppTheme.darkTheme.textTheme.displayLarge?.copyWith(fontSize: 28),
-              ),
-              loading: () => Text("Olá...", style: AppTheme.darkTheme.textTheme.displayLarge?.copyWith(fontSize: 28)),
-              error: (_, __) => Text("Olá, Cliente", style: AppTheme.darkTheme.textTheme.displayLarge?.copyWith(fontSize: 28)),
+              data: (profile) => Text(profile?.fullName?.split(' ').first ?? 'Cliente'),
+              loading: () => const Text("Olá..."),
+              error: (_, __) => const Text("Barber Premium"),
             ),
             actions: [
               IconButton(
-                icon: const Icon(CupertinoIcons.bell, color: Colors.white),
+                icon: const Icon(CupertinoIcons.bell_fill, color: Colors.white),
                 onPressed: () {},
               ),
+              const SizedBox(width: 8),
               profileAsync.when(
-                data: (profile) => CircleAvatar(
-                  backgroundImage: profile?.avatarUrl != null 
-                    ? NetworkImage(profile!.avatarUrl!)
-                    : const NetworkImage('https://i.pravatar.cc/150?img=12'),
-                  radius: 18,
+                data: (profile) => Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: CircleAvatar(
+                    backgroundImage: profile?.avatarUrl != null 
+                      ? NetworkImage(profile!.avatarUrl!)
+                      : const NetworkImage('https://i.pravatar.cc/150?img=12'),
+                    radius: 18,
+                  ),
                 ),
-                loading: () => const CircleAvatar(radius: 18, backgroundColor: AppTheme.surface),
-                error: (_, __) => const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=12')),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
               ),
-              const SizedBox(width: 16),
             ],
           ),
+          
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Cartão de Fidelidade (com contagem real de bookings completados)
-                  clientBookingsAsync.when(
-                    data: (bookings) {
-                      final completedCount = bookings.where((b) => b.status == 'completed').length;
-                      final progress = (completedCount % 10) / 10;
-                      final remaining = 10 - (completedCount % 10);
-                      
-                      return Container(
-                        height: 180,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF1C1C1E), Color(0xFF2C2C2E)],
-                          ),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
-                        ),
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text("LOYALTY CARD", style: TextStyle(color: AppTheme.accent, letterSpacing: 2, fontWeight: FontWeight.bold)),
-                                Icon(Icons.stars, color: AppTheme.accent),
-                              ],
-                            ),
-                            Text("${completedCount % 10} / 10 Cortes", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-                            LinearProgressIndicator(
-                              value: progress,
-                              backgroundColor: Colors.black,
-                              color: AppTheme.accent,
-                              borderRadius: BorderRadius.circular(10),
-                              minHeight: 8,
-                            ),
-                            Text(
-                              remaining == 10 
-                                ? "Complete 10 cortes para ganhar 1 grátis!" 
-                                : "Faltam $remaining cortes para o próximo grátis!",
-                              style: AppTheme.darkTheme.textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    loading: () => _buildLoyaltyCardPlaceholder(),
-                    error: (_, __) => _buildLoyaltyCardPlaceholder(),
-                  ),
-                  const SizedBox(height: 30),
+                  // Section Title
+                  Text("CARTEIRA", style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 1.5)),
+                  const SizedBox(height: 12),
                   
-                  // Próximo Agendamento
-                  const Text("Próximo Agendamento", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 15),
-                  nextBookingAsync.when(
-                    data: (booking) {
-                      if (booking == null) {
-                        return GlassCard(
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.2),
-                                shape: BoxShape.circle
-                              ),
-                              child: const Icon(CupertinoIcons.calendar, color: Colors.grey),
-                            ),
-                            title: const Text("Nenhum agendamento", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            subtitle: const Text("Agende seu próximo corte!", style: TextStyle(color: Colors.grey)),
-                          ),
-                        );
-                      }
-                      
-                      final isToday = DateUtils.isSameDay(booking.startTime, DateTime.now());
-                      final dateStr = isToday 
-                        ? "Hoje, ${DateFormat('HH:mm').format(booking.startTime)}"
-                        : DateFormat("dd/MM, HH:mm").format(booking.startTime);
-                      
-                      return GlassCard(
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(16),
-                          leading: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppTheme.accent.withOpacity(0.2),
-                              shape: BoxShape.circle
-                            ),
-                            child: const Icon(CupertinoIcons.time, color: AppTheme.accent),
-                          ),
-                          title: Text(dateStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          subtitle: Text("Serviço agendado • ${booking.status}", style: const TextStyle(color: Colors.grey)),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: booking.status == 'confirmed' 
-                                ? Colors.green.withOpacity(0.2) 
-                                : Colors.orange.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              booking.status == 'confirmed' ? 'Confirmado' : 'Pendente',
-                              style: TextStyle(
-                                color: booking.status == 'confirmed' ? Colors.green : Colors.orange,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    loading: () => const GlassCard(
-                      child: ListTile(
-                        contentPadding: EdgeInsets.all(16),
-                        leading: CircularProgressIndicator(),
-                        title: Text("Carregando...", style: TextStyle(color: Colors.white)),
-                      ),
-                    ),
-                    error: (err, _) => GlassCard(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: const Icon(Icons.error, color: Colors.red),
-                        title: const Text("Erro ao carregar", style: TextStyle(color: Colors.white)),
-                        subtitle: Text(err.toString(), style: const TextStyle(color: Colors.grey)),
-                      ),
-                    ),
-                  ),
+                  // Loyalty Card (Apple Wallet Style)
+                  _buildLoyaltyCard(clientBookingsAsync),
+                  const SizedBox(height: 32),
+                  
+                  // Next Booking Widget
+                  Text("AGENDAMENTO", style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 1.5)),
+                  const SizedBox(height: 12),
+                  _buildNextBooking(nextBookingAsync),
                 ],
               ),
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLoyaltyCardPlaceholder() {
-    return Container(
-      height: 180,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1C1C1E), Color(0xFF2C2C2E)],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("LOYALTY CARD", style: TextStyle(color: AppTheme.accent, letterSpacing: 2, fontWeight: FontWeight.bold)),
-              Icon(Icons.stars, color: AppTheme.accent),
+  Widget _buildLoyaltyCard(AsyncValue<List<dynamic>> bookingsAsync) {
+    return bookingsAsync.when(
+      data: (bookings) {
+        final completedCount = bookings.where((b) => b.status == 'completed').length;
+        final count = completedCount % 10;
+        final remaining = 10 - count;
+
+        return Container(
+          height: 200,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFD4AF37), Color(0xFFA08220)], // Gold Gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFD4AF37).withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
             ],
           ),
-          const Text("0 / 10 Cortes", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-          LinearProgressIndicator(
-            value: 0,
-            backgroundColor: Colors.black,
-            color: AppTheme.accent,
-            borderRadius: BorderRadius.circular(10),
-            minHeight: 8,
+          child: Stack(
+            children: [
+              // Decorative circles
+              Positioned(
+                right: -50, top: -50,
+                child: CircleAvatar(radius: 100, backgroundColor: Colors.white.withOpacity(0.1)),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Icon(CupertinoIcons.scissors, color: Colors.black, size: 30),
+                        Text("GOLD MEMBER", style: GoogleFonts.inter(color: Colors.black.withOpacity(0.6), fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      ],
+                    ),
+                    
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("$count / 10", style: const TextStyle(color: Colors.black, fontSize: 42, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text(remaining == 10 ? "Comece sua jornada!" : "Faltam $remaining para um corte grátis", 
+                          style: const TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Text("Complete 10 cortes para ganhar 1 grátis!", style: AppTheme.darkTheme.textTheme.bodyMedium),
-        ],
-      ),
+        );
+      },
+      loading: () => const AppleGlassContainer(child: SizedBox(height: 180, child: Center(child: CircularProgressIndicator(color: AppTheme.accent)))),
+      error: (_,__) => const SizedBox(),
+    );
+  }
+
+  Widget _buildNextBooking(AsyncValue<dynamic> bookingAsync) {
+    return bookingAsync.when(
+      data: (booking) {
+        if (booking == null) {
+          return AppleGlassContainer(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+                  child: const Icon(CupertinoIcons.calendar_badge_plus, color: Colors.white),
+                ),
+                const SizedBox(width: 16),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Sem agendamentos", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text("Toque para marcar um horário", style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  ],
+                )
+              ],
+            ),
+          );
+        }
+        
+        final isToday = DateUtils.isSameDay(booking.startTime, DateTime.now());
+        final dateStr = isToday 
+          ? "Hoje, ${DateFormat('HH:mm').format(booking.startTime)}"
+          : DateFormat("dd MMM • HH:mm", 'pt_BR').format(booking.startTime).toUpperCase();
+
+        return AppleGlassContainer(
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                // Date Column
+                Container(
+                  width: 60,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(DateFormat('dd').format(booking.startTime), style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold, fontSize: 20)),
+                      Text(DateFormat('MMM').format(booking.startTime).toUpperCase(), style: const TextStyle(color: AppTheme.accent, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                
+                // Info Column
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text("Corte Masculino", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(CupertinoIcons.time, size: 14, color: AppTheme.textSecondary),
+                          const SizedBox(width: 4),
+                          Text(dateStr, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Status Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: booking.status == 'confirmed' ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    booking.status == 'confirmed' ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
+                    size: 16,
+                    color: booking.status == 'confirmed' ? Colors.green : Colors.orange,
+                  ),
+                )
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox(height: 100),
+      error: (_,__) => const SizedBox(),
     );
   }
 }

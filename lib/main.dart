@@ -1,21 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/date_symbol_data_local.dart';
-import 'core/theme/app_theme.dart';
-import 'data/services/supabase_service.dart';
+import 'core/config/app_config.dart';
+import 'package:barber_premium/core/theme/app_theme.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/screens/auth_screen.dart';
 import 'presentation/screens/main_layout.dart';
-
+import 'presentation/screens/barber/barber_main_layout.dart';
 import 'presentation/screens/admin/admin_dashboard_screen.dart';
+import 'main_common.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('pt_BR', null);
-  
-  await SupabaseService().initialize();
-
-  runApp(const ProviderScope(child: BarberPremiumApp()));
+void main() {
+  // Default for development if run without -t
+  mainCommon(AppFlavor.client);
 }
 
 class BarberPremiumApp extends ConsumerWidget {
@@ -32,10 +28,18 @@ class BarberPremiumApp extends ConsumerWidget {
       home: authState.when(
         data: (user) {
           if (user == null) return const AuthScreen();
+          
+          // Admin Check (Hardcoded for now as per previous code)
           if (user.email == 'aiucmt.kiaaivmtq@gmail.com') {
             return const AdminDashboardScreen();
           }
-          return const MainLayout();
+
+          // Flavor based routing
+          if (AppConfig.isBarber) {
+             return const BarberMainLayout();
+          } else {
+             return const MainLayout(); // Client Layout
+          }
         },
         loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
         error: (err, stack) => Scaffold(body: Center(child: Text('Erro: $err'))),

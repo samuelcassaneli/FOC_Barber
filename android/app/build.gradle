@@ -26,11 +26,29 @@ if (flutterVersionName == null) {
 android {
     namespace = "com.barberpremium.barber_premium"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "25.1.8937393"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    flavorDimensions "app"
+    productFlavors {
+        barbearia {
+            dimension "app"
+            applicationIdSuffix ".barbearia"
+            versionNameSuffix "-barbearia"
+        }
+        cliente {
+            dimension "app"
+            applicationIdSuffix ".cliente"
+            versionNameSuffix "-cliente"
+        }
     }
 
     defaultConfig {
