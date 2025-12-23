@@ -37,3 +37,15 @@ export interface Booking {
     barber?: Barber
     service?: Service
 }
+
+export interface FinancialTransaction {
+    id: string
+    barbershop_id: string
+    transaction_type: string
+    amount: number
+    description?: string
+    transaction_date: string // ISO string
+    created_at?: string
+    updated_at?: string
+}
+

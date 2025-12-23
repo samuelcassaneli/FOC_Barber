@@ -106,7 +106,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 return servicesAsync.when(
                   data: (services) {
                     double totalEarnings = 0;
-                    for (var booking in bookings.where((b) => b.status != 'cancelled')) {
+                    for (var booking in bookings.where((b) => b.status != BookingStatus.cancelled)) {
                       final service = services.where((s) => s.id == booking.serviceId).firstOrNull;
                       if (service != null) {
                         totalEarnings += service.price;
@@ -142,10 +142,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                       child: ListTile(
                                         leading: CircleAvatar(
-                                          backgroundColor: _getStatusColor(booking.status).withOpacity(0.2),
+                                          backgroundColor: _getStatusColor(booking.status.toDbValue()).withOpacity(0.2),
                                           child: Text(
                                             DateFormat('HH').format(booking.startTime),
-                                            style: TextStyle(color: _getStatusColor(booking.status)),
+                                            style: TextStyle(color: _getStatusColor(booking.status.toDbValue())),
                                           ),
                                         ),
                                         title: Text(
@@ -195,7 +195,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildStatusActions(BookingModel booking) {
-    if (booking.status == 'pending') {
+    if (booking.status == BookingStatus.pending) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -214,13 +214,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _getStatusColor(booking.status).withOpacity(0.2),
+        color: _getStatusColor(booking.status.toDbValue()).withOpacity(0.2),
         borderRadius: BorderRadius.circular(4)
       ),
       child: Text(
-        _getStatusLabel(booking.status),
+        _getStatusLabel(booking.status.toDbValue()),
         style: TextStyle(
-          color: _getStatusColor(booking.status),
+          color: _getStatusColor(booking.status.toDbValue()),
           fontSize: 10
         ),
       ),

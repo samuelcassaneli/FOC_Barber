@@ -3,10 +3,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../providers/profile_provider.dart'; // Added
+import '../../../providers/profile_provider.dart';
 import '../../../widgets/apple_glass_container.dart';
 import '../management/services_screen.dart';
 import '../management/products_screen.dart';
@@ -23,7 +24,6 @@ class BarberProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _BarberProfileScreenState extends ConsumerState<BarberProfileScreen> {
-  // Removed local _avatarUrl and _loadProfile
 
   Future<void> _updateProfilePicture() async {
     final picker = ImagePicker();
@@ -34,13 +34,11 @@ class _BarberProfileScreenState extends ConsumerState<BarberProfileScreen> {
       final user = SupabaseService().client.auth.currentUser;
       
       try {
-         // Create unique filename to bypass cache
          final fileName = '${user!.id}/${DateTime.now().millisecondsSinceEpoch}.jpg';
          
          await SupabaseService().client.storage.from('avatars').upload(fileName, file);
          final publicUrl = SupabaseService().client.storage.from('avatars').getPublicUrl(fileName);
          
-         // Update DB - Stream provider will catch this change
          await SupabaseService().client.from('profiles').update({'avatar_url': publicUrl}).eq('id', user.id);
          
          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Foto atualizada!")));
@@ -52,7 +50,7 @@ class _BarberProfileScreenState extends ConsumerState<BarberProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profileAsync = ref.watch(profileProvider); // Watch the stream
+    final profileAsync = ref.watch(profileProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -100,9 +98,6 @@ class _BarberProfileScreenState extends ConsumerState<BarberProfileScreen> {
                        Text(profile['full_name'] ?? "Barbeiro", style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                        const Text("Barbearia Premium", style: TextStyle(color: AppTheme.textSecondary)),
                        const SizedBox(height: 16),
-import 'package:share_plus/share_plus.dart'; // Added import
-
-// ... inside the build method, where the code is displayed ...
                        Container(
                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                          decoration: BoxDecoration(

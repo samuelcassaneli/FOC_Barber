@@ -42,3 +42,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .env
+
+.gemini/
+gha-creds-*.json
+
+# APKs gerados
+*.apk

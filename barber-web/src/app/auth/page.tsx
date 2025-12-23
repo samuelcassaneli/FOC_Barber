@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { GlassCard } from '@/components/ui/GlassCard'
@@ -16,6 +16,11 @@ export default function AuthPage() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [role, setRole] = useState<'client' | 'barber'>('client')
+    const [isMounted, setIsMounted] = useState(false)
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -66,6 +71,10 @@ export default function AuthPage() {
         } finally {
             setLoading(false)
         }
+    }
+
+    if (!isMounted) {
+        return null // Render nothing on the server, or a very basic placeholder
     }
 
     return (
