@@ -62,7 +62,7 @@ Future<BookingModel?> nextClientBooking(NextClientBookingRef ref) async {
   
   // Filter for future confirmed/pending bookings and get the nearest one
   final upcomingBookings = bookings
-      .where((b) => b.startTime.isAfter(now) && (b.status == 'pending' || b.status == 'confirmed'))
+      .where((b) => b.startTime.isAfter(now) && (b.status == BookingStatus.pending || b.status == BookingStatus.confirmed))
       .toList()
     ..sort((a, b) => a.startTime.compareTo(b.startTime));
   

@@ -38,11 +38,11 @@ class ManageBarbersScreen extends ConsumerWidget {
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Colors.white10,
-                    backgroundImage: barber.photoUrl != null ? NetworkImage(barber.photoUrl!) : null,
-                    child: barber.photoUrl == null ? const Icon(Icons.person, color: Colors.white) : null,
+                    backgroundImage: barber.avatarUrl != null ? NetworkImage(barber.avatarUrl!) : null,
+                    child: barber.avatarUrl == null ? const Icon(Icons.person, color: Colors.white) : null,
                   ),
                   title: Text(barber.name, style: const TextStyle(color: Colors.white)),
-                  subtitle: Text(barber.specialty, style: const TextStyle(color: Colors.grey)),
+                  subtitle: Text(barber.specialties.isNotEmpty ? barber.specialties.first : 'Barbeiro', style: const TextStyle(color: Colors.grey)),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
