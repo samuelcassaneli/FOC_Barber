@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
     Store, ArrowLeft, Save, Shield,
-    MapPin, Phone, Mail, Globe, Clock
+    MapPin, Phone, Mail, Globe, Palette,
+    Instagram, MessageCircle, CreditCard, Users
 } from 'lucide-react'
 
 interface BarbershopForm {
@@ -15,12 +16,20 @@ interface BarbershopForm {
     slug: string
     description: string
     phone: string
+    whatsapp: string
     email: string
+    owner_email: string
     website: string
+    instagram: string
     address: string
     city: string
     state: string
     zip_code: string
+    cnpj: string
+    primary_color: string
+    secondary_color: string
+    plan_type: string
+    max_barbers: number
     is_active: boolean
 }
 
@@ -28,6 +37,13 @@ const BRAZILIAN_STATES = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
     'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
     'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+]
+
+const PLAN_TYPES = [
+    { value: 'free', label: 'Gratuito', barbers: 1 },
+    { value: 'basic', label: 'Básico - R$ 49,90/mês', barbers: 3 },
+    { value: 'premium', label: 'Premium - R$ 99,90/mês', barbers: 10 },
+    { value: 'enterprise', label: 'Enterprise - R$ 249,90/mês', barbers: -1 },
 ]
 
 export default function NewBarbershopPage() {
@@ -39,12 +55,20 @@ export default function NewBarbershopPage() {
         slug: '',
         description: '',
         phone: '',
+        whatsapp: '',
         email: '',
+        owner_email: '',
         website: '',
+        instagram: '',
         address: '',
         city: '',
         state: '',
         zip_code: '',
+        cnpj: '',
+        primary_color: '#D4AF37',
+        secondary_color: '#1C1C1E',
+        plan_type: 'free',
+        max_barbers: 1,
         is_active: true
     })
 
@@ -65,15 +89,27 @@ export default function NewBarbershopPage() {
         }))
     }
 
+    const handlePlanChange = (planType: string) => {
+        const plan = PLAN_TYPES.find(p => p.value === planType)
+        setForm(prev => ({
+            ...prev,
+            plan_type: planType,
+            max_barbers: plan?.barbers || 1
+        }))
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
 
         try {
-            // Validate required fields
             if (!form.name || !form.slug) {
                 throw new Error('Nome e slug são obrigatórios')
+            }
+
+            if (!form.owner_email) {
+                throw new Error('Email do proprietário é obrigatório')
             }
 
             // Check if slug is unique
@@ -87,7 +123,7 @@ export default function NewBarbershopPage() {
                 throw new Error('Este slug já está em uso. Escolha outro.')
             }
 
-            // Get current user as owner
+            // Get current user as admin
             const { data: { user } } = await supabase.auth.getUser()
 
             // Create barbershop
@@ -98,14 +134,22 @@ export default function NewBarbershopPage() {
                     slug: form.slug,
                     description: form.description || null,
                     phone: form.phone || null,
+                    whatsapp: form.whatsapp || null,
                     email: form.email || null,
+                    owner_email: form.owner_email,
                     website: form.website || null,
+                    instagram: form.instagram || null,
                     address: form.address || null,
                     city: form.city || null,
                     state: form.state || null,
                     zip_code: form.zip_code || null,
+                    cnpj: form.cnpj || null,
+                    primary_color: form.primary_color,
+                    secondary_color: form.secondary_color,
+                    plan_type: form.plan_type,
+                    max_barbers: form.max_barbers,
                     is_active: form.is_active,
-                    owner_id: user?.id || null,
+                    owner_id: null, // Será preenchido quando o dono se cadastrar
                     settings: {
                         booking_advance_days: 30,
                         min_booking_notice_hours: 2,
@@ -119,8 +163,9 @@ export default function NewBarbershopPage() {
 
             if (createError) throw createError
 
-            // Redirect to barbershop detail page
-            router.push(`/admin/barbershops/${barbershop.id}`)
+            alert(`Barbearia criada com sucesso!\n\nCódigo de Convite: ${barbershop.invite_code}\n\nEnvie este código para o proprietário (${form.owner_email}) se cadastrar no app.`)
+
+            router.push(`/admin/barbershops`)
         } catch (err: any) {
             setError(err.message || 'Erro ao criar barbearia')
         } finally {
@@ -140,8 +185,6 @@ export default function NewBarbershopPage() {
                     <nav className="flex gap-6">
                         <Link href="/admin" className="text-gray-400 hover:text-white transition">Dashboard</Link>
                         <Link href="/admin/barbershops" className="text-gold font-medium">Barbearias</Link>
-                        <Link href="/admin/users" className="text-gray-400 hover:text-white transition">Usuários</Link>
-                        <Link href="/admin/financial" className="text-gray-400 hover:text-white transition">Financeiro</Link>
                     </nav>
                 </div>
             </header>
@@ -163,7 +206,7 @@ export default function NewBarbershopPage() {
                     </div>
                     <div>
                         <h2 className="text-2xl font-bold text-white">Nova Barbearia</h2>
-                        <p className="text-gray-400">Cadastre uma nova barbearia no sistema</p>
+                        <p className="text-gray-400">Cadastre uma nova barbearia no sistema white-label</p>
                     </div>
                 </div>
 
@@ -205,15 +248,14 @@ export default function NewBarbershopPage() {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2">Status</label>
-                                <select
-                                    value={form.is_active ? 'active' : 'inactive'}
-                                    onChange={(e) => setForm(prev => ({ ...prev, is_active: e.target.value === 'active' }))}
+                                <label className="block text-gray-400 text-sm mb-2">CNPJ</label>
+                                <input
+                                    type="text"
+                                    value={form.cnpj}
+                                    onChange={(e) => setForm(prev => ({ ...prev, cnpj: e.target.value }))}
                                     className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
-                                >
-                                    <option value="active">Ativo</option>
-                                    <option value="inactive">Inativo</option>
-                                </select>
+                                    placeholder="00.000.000/0001-00"
+                                />
                             </div>
                             <div className="col-span-2">
                                 <label className="block text-gray-400 text-sm mb-2">Descrição</label>
@@ -223,6 +265,72 @@ export default function NewBarbershopPage() {
                                     className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50 h-24 resize-none"
                                     placeholder="Descrição da barbearia..."
                                 />
+                            </div>
+                        </div>
+                    </GlassCard>
+
+                    {/* Owner Info */}
+                    <GlassCard className="p-6 mb-6">
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <Users size={20} className="text-gold" />
+                            Proprietário
+                        </h3>
+                        <div className="grid grid-cols-1 gap-4">
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-2">Email do Proprietário *</label>
+                                <input
+                                    type="email"
+                                    value={form.owner_email}
+                                    onChange={(e) => setForm(prev => ({ ...prev, owner_email: e.target.value }))}
+                                    className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
+                                    placeholder="dono@barbearia.com"
+                                    required
+                                />
+                                <p className="text-gray-500 text-xs mt-1">
+                                    O proprietário receberá um código para se cadastrar e acessar o painel da barbearia
+                                </p>
+                            </div>
+                        </div>
+                    </GlassCard>
+
+                    {/* Plan */}
+                    <GlassCard className="p-6 mb-6">
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <CreditCard size={20} className="text-gold" />
+                            Plano
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-2">Tipo de Plano</label>
+                                <select
+                                    value={form.plan_type}
+                                    onChange={(e) => handlePlanChange(e.target.value)}
+                                    className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
+                                >
+                                    {PLAN_TYPES.map(plan => (
+                                        <option key={plan.value} value={plan.value}>{plan.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-2">Máx. Barbeiros</label>
+                                <input
+                                    type="number"
+                                    value={form.max_barbers === -1 ? 'Ilimitado' : form.max_barbers}
+                                    disabled
+                                    className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-gray-400 focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-2">Status</label>
+                                <select
+                                    value={form.is_active ? 'active' : 'inactive'}
+                                    onChange={(e) => setForm(prev => ({ ...prev, is_active: e.target.value === 'active' }))}
+                                    className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
+                                >
+                                    <option value="active">Ativo</option>
+                                    <option value="inactive">Inativo</option>
+                                </select>
                             </div>
                         </div>
                     </GlassCard>
@@ -245,6 +353,16 @@ export default function NewBarbershopPage() {
                                 />
                             </div>
                             <div>
+                                <label className="block text-gray-400 text-sm mb-2">WhatsApp</label>
+                                <input
+                                    type="tel"
+                                    value={form.whatsapp}
+                                    onChange={(e) => setForm(prev => ({ ...prev, whatsapp: e.target.value }))}
+                                    className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
+                                    placeholder="(11) 99999-9999"
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-gray-400 text-sm mb-2">E-mail</label>
                                 <input
                                     type="email"
@@ -252,6 +370,16 @@ export default function NewBarbershopPage() {
                                     onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
                                     className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
                                     placeholder="contato@barbearia.com"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-2">Instagram</label>
+                                <input
+                                    type="text"
+                                    value={form.instagram}
+                                    onChange={(e) => setForm(prev => ({ ...prev, instagram: e.target.value }))}
+                                    className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
+                                    placeholder="@barbearia"
                                 />
                             </div>
                             <div className="col-span-2">
@@ -263,6 +391,50 @@ export default function NewBarbershopPage() {
                                     className="w-full bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
                                     placeholder="https://www.barbearia.com"
                                 />
+                            </div>
+                        </div>
+                    </GlassCard>
+
+                    {/* Customization */}
+                    <GlassCard className="p-6 mb-6">
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <Palette size={20} className="text-gold" />
+                            Personalização (White-Label)
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-2">Cor Primária</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="color"
+                                        value={form.primary_color}
+                                        onChange={(e) => setForm(prev => ({ ...prev, primary_color: e.target.value }))}
+                                        className="w-12 h-12 rounded-lg border border-white/10 cursor-pointer"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={form.primary_color}
+                                        onChange={(e) => setForm(prev => ({ ...prev, primary_color: e.target.value }))}
+                                        className="flex-1 bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-gray-400 text-sm mb-2">Cor Secundária</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="color"
+                                        value={form.secondary_color}
+                                        onChange={(e) => setForm(prev => ({ ...prev, secondary_color: e.target.value }))}
+                                        className="w-12 h-12 rounded-lg border border-white/10 cursor-pointer"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={form.secondary_color}
+                                        onChange={(e) => setForm(prev => ({ ...prev, secondary_color: e.target.value }))}
+                                        className="flex-1 bg-dark-bg border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-gold/50"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </GlassCard>
@@ -334,7 +506,7 @@ export default function NewBarbershopPage() {
                             className="flex-1 flex items-center justify-center gap-2 bg-gold text-black py-3 rounded-lg font-medium hover:bg-gold/90 transition disabled:opacity-50"
                         >
                             {loading ? (
-                                'Salvando...'
+                                'Criando...'
                             ) : (
                                 <>
                                     <Save size={20} />
